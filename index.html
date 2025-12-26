@@ -1,0 +1,667 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Mapa de Vendas</title>
+<style>
+body{font-family:Arial,Helvetica,sans-serif;margin:0;padding:16px;background:#f5f5f5;}
+.wrap{max-width:1200px;margin:0 auto;}
+.hint{margin:10px 0 14px;color:#333;font-size:14px;}
+.mapbox{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.08);}
+.stage{position:relative;width:100%;}
+canvas{display:block;width:100%;height:auto;}
+.hot{position:absolute;z-index:10;cursor:pointer;border:2px solid rgba(0,0,0,.20);background:rgba(255,255,255,.01);pointer-events:auto;touch-action:manipulation;}
+.hot:hover{border-color:rgba(0,0,0,.45);}
+.modalBack{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:18px;z-index:999;}
+.modal{background:#fff;border-radius:14px;max-width:520px;width:100%;padding:16px 16px 12px;box-shadow:0 12px 30px rgba(0,0,0,.25);}
+.modal h3{margin:0 0 8px;font-size:18px;}
+.modal pre{white-space:pre-wrap;margin:0;font-family:inherit;font-size:14px;line-height:1.35;color:#222;}
+.modal .actions{display:flex;justify-content:flex-end;margin-top:12px;}
+.btn{border:0;border-radius:10px;padding:10px 14px;font-size:14px;cursor:pointer;}
+.btnClose{background:#111;color:#fff;}
+.pdf-link{display:inline-block;margin-bottom:12px;background:#0e6946;color:#fff;text-decoration:none;padding:10px 14px;border-radius:10px;font-size:14px;}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+function openModal(title, text){document.getElementById('mTitle').innerText=title;document.getElementById('mText').innerText=text;document.getElementById('modalBack').style.display='flex';}
+function closeModal(){document.getElementById('modalBack').style.display='none';}
+
+const HOTSPOTS = [
+  {title:'Quadra 20 - Lote 26',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 396,49 m?\nFRENTE: 15 m\nLATERAL: 26,44 m',left:4.903,top:10.668,width:0.974,height:7.028},
+  {title:'Quadra 20 - Lote 25',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 211,33 m?\nFRENTE: 8 m\nLATERAL: 26,42 m',left:5.877,top:10.668,width:0.503,height:7.028},
+  {title:'Quadra 20 - Lote 24',tip:'SITUA‚ÌO: 140000\nPROPRIETçRIO: EIDT\nçREA: 211,24 m?\nFRENTE: 8 m\nLATERAL: 26,41 m',left:6.38,top:10.668,width:0.525,height:7.047},
+  {title:'Quadra 20 - Lote 23',tip:'SITUA‚ÌO: 140000\nPROPRIETçRIO: EIDT\nçREA: 211,15 m?\nFRENTE: 8 m\nLATERAL: 26,4 m',left:6.905,top:10.668,width:0.509,height:7.047},
+  {title:'Quadra 20 - Lote 22',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 211,07 m?\nFRENTE: 8 m\nLATERAL: 26,39 m',left:7.413,top:10.668,width:0.503,height:7.047},
+  {title:'Quadra 20 - Lote 21',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 210,98 m?\nFRENTE: 8 m\nLATERAL: 26,38 m',left:7.916,top:10.668,width:0.524,height:7.028},
+  {title:'Quadra 20 - Lote 20',tip:'SITUA‚ÌO: 140000\nPROPRIETçRIO: EIDT\nçREA: 210,89 m?\nFRENTE: 8 m\nLATERAL: 26,37 m',left:8.44,top:10.668,width:0.514,height:7.047},
+  {title:'Quadra 20 - Lote 19',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 210,8 m?\nFRENTE: 8 m\nLATERAL: 26,36 m',left:8.954,top:10.668,width:0.503,height:7.047},
+  {title:'Quadra 20 - Lote 18',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 210,71 m?\nFRENTE: 8 m\nLATERAL: 26,34 m',left:9.457,top:10.668,width:0.52,height:7.047},
+  {title:'Quadra 20 - Lote 17',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 210,62 m?\nFRENTE: 8 m\nLATERAL: 26,33 m',left:9.976,top:10.668,width:0.514,height:7.028},
+  {title:'Quadra 20 - Lote 16',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 210,53 m?\nFRENTE: 8 m\nLATERAL: 26,32 m',left:10.49,top:10.668,width:0.507,height:7.047},
+  {title:'Quadra 20 - Lote 15',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 210,45 m?\nFRENTE: 8 m\nLATERAL: 26,31 m',left:10.997,top:10.668,width:0.524,height:7.047},
+  {title:'Quadra 20 - Lote 14',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 210,36 m?\nFRENTE: 8 m\nLATERAL: 26,3 m',left:11.521,top:10.668,width:0.514,height:7.047},
+  {title:'Quadra 20 - Lote 13',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 210,27 m?\nFRENTE: 8 m\nLATERAL: 26,29 m',left:12.035,top:10.668,width:0.503,height:7.028},
+  {title:'Quadra 20 - Lote 12',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 210,18 m?\nFRENTE: 8 m\nLATERAL: 26,28 m',left:12.537,top:10.668,width:0.524,height:7.047},
+  {title:'Quadra 20 - Lote 11',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 210,09 m?\nFRENTE: 8 m\nLATERAL: 26,27 m',left:13.062,top:10.668,width:0.507,height:7.047},
+  {title:'Quadra 20 - Lote 10',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 210 m?\nFRENTE: 8 m\nLATERAL: 26,26 m',left:13.569,top:10.668,width:0.514,height:7.047},
+  {title:'Quadra 20 - Lote 9',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 209,92 m?\nFRENTE: 8 m\nLATERAL: 26,24 m',left:14.083,top:10.668,width:0.524,height:7.028},
+  {title:'Quadra 20 - Lote 8',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 209,83 m?\nFRENTE: 8 m\nLATERAL: 26,23 m',left:14.607,top:10.668,width:0.503,height:7.047},
+  {title:'Quadra 20 - Lote 7',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 209,74 m?\nFRENTE: 8 m\nLATERAL: 26,22 m',left:15.11,top:10.668,width:0.514,height:7.047},
+  {title:'Quadra 20 - Lote 6',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 209,65 m?\nFRENTE: 8 m\nLATERAL: 26,21 m',left:15.623,top:10.668,width:0.524,height:7.047},
+  {title:'Quadra 20 - Lote 5',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 209,56 m?\nFRENTE: 8 m\nLATERAL: 26,2 m',left:16.147,top:10.668,width:0.503,height:7.028},
+  {title:'Quadra 20 - Lote 4',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 209,47 m?\nFRENTE: 8 m\nLATERAL: 26,19 m',left:16.65,top:10.668,width:0.514,height:7.047},
+  {title:'Quadra 20 - Lote 3',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 209,39 m?\nFRENTE: 8 m\nLATERAL: 26,18 m',left:17.164,top:10.668,width:0.524,height:7.047},
+  {title:'Quadra 20 - Lote 2',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 209,3 m?\nFRENTE: 8 m\nLATERAL: 26,17 m',left:17.688,top:10.668,width:0.503,height:7.047},
+  {title:'Quadra 20 - Lote 1',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 287,63 m?\nFRENTE: 11 m\nLATERAL: 26,16 m',left:18.191,top:10.668,width:0.717,height:7.047},
+  {title:'Quadra 21 - Lote 27',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 261,11 m?\nFRENTE: 10 m\nLATERAL: 26,12 m',left:19.989,top:10.364,width:0.671,height:8.216},
+  {title:'Quadra 21 - Lote 26',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 208,79 m?\nFRENTE: 8 m\nLATERAL: 26,1 m',left:20.66,top:10.364,width:0.517,height:8.216},
+  {title:'Quadra 21 - Lote 25',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 208,7 m?\nFRENTE: 8 m\nLATERAL: 26,09 m',left:21.177,top:10.364,width:0.539,height:8.213},
+  {title:'Quadra 21 - Lote 24',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 208,61 m?\nFRENTE: 8 m\nLATERAL: 26,08 m',left:21.715,top:10.364,width:0.527,height:8.213},
+  {title:'Quadra 21 - Lote 23',tip:'SITUA‚ÌO: 140000\nPROPRIETçRIO: EIDT\nçREA: 208,52 m?\nFRENTE: 8 m\nLATERAL: 26,07 m',left:22.243,top:10.364,width:0.516,height:8.213},
+  {title:'Quadra 21 - Lote 22',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 208,43 m?\nFRENTE: 8 m\nLATERAL: 26,06 m',left:22.759,top:10.364,width:0.539,height:8.216},
+  {title:'Quadra 21 - Lote 21',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 208,35 m?\nFRENTE: 8 m\nLATERAL: 26,05 m',left:23.298,top:10.364,width:0.528,height:8.213},
+  {title:'Quadra 21 - Lote 20',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 208,26 m?\nFRENTE: 8 m\nLATERAL: 26,04 m',left:23.826,top:10.364,width:0.517,height:8.213},
+  {title:'Quadra 21 - Lote 19',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 208,16 m?\nFRENTE: 8 m\nLATERAL: 26,03 m',left:24.343,top:10.364,width:0.539,height:8.213},
+  {title:'Quadra 21 - Lote 18',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 208,08 m?\nFRENTE: 8 m\nLATERAL: 26,02 m',left:24.881,top:10.364,width:0.527,height:8.216},
+  {title:'Quadra 21 - Lote 17',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 207,99 m?\nFRENTE: 8 m\nLATERAL: 26 m',left:25.409,top:10.364,width:0.516,height:8.213},
+  {title:'Quadra 21 - Lote 16',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 207,9 m?\nFRENTE: 8 m\nLATERAL: 25,99 m',left:25.925,top:10.364,width:0.539,height:8.213},
+  {title:'Quadra 21 - Lote 15',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 207,82 m?\nFRENTE: 8 m\nLATERAL: 25,98 m',left:26.464,top:10.364,width:0.517,height:8.213},
+  {title:'Quadra 21 - Lote 14',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 207,73 m?\nFRENTE: 8 m\nLATERAL: 25,97 m',left:26.981,top:10.364,width:0.527,height:8.216},
+  {title:'Quadra 21 - Lote 13',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 207,64 m?\nFRENTE: 8 m\nLATERAL: 25,96 m',left:27.509,top:10.364,width:0.539,height:8.213},
+  {title:'Quadra 21 - Lote 12',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 207,55 m?\nFRENTE: 8 m\nLATERAL: 25,95 m',left:28.047,top:10.364,width:0.516,height:8.213},
+  {title:'Quadra 21 - Lote 11',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 207,46 m?\nFRENTE: 8 m\nLATERAL: 25,94 m',left:28.564,top:10.364,width:0.527,height:8.213},
+  {title:'Quadra 21 - Lote 10',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 207,37 m?\nFRENTE: 8 m\nLATERAL: 25,93 m',left:29.091,top:10.364,width:0.539,height:8.216},
+  {title:'Quadra 21 - Lote 9',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 207,28 m?\nFRENTE: 8 m\nLATERAL: 25,92 m',left:29.63,top:10.364,width:0.517,height:8.213},
+  {title:'Quadra 21 - Lote 8',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 207,2 m?\nFRENTE: 8 m\nLATERAL: 25,91 m',left:30.147,top:10.364,width:0.527,height:8.213},
+  {title:'Quadra 21 - Lote 7',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 207,11 m?\nFRENTE: 8 m\nLATERAL: 25,89 m',left:30.674,top:10.364,width:0.539,height:8.213},
+  {title:'Quadra 21 - Lote 6',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 207,02 m?\nFRENTE: 8 m\nLATERAL: 25,88 m',left:31.213,top:10.364,width:0.516,height:8.216},
+  {title:'Quadra 21 - Lote 5',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 206,84 m?\nFRENTE: 8 m\nLATERAL: 25,86 m',left:31.729,top:10.364,width:0.539,height:8.213},
+  {title:'Quadra 21 - Lote 4',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 206,93 m?\nFRENTE: 8 m\nLATERAL: 25,87 m',left:32.269,top:10.364,width:0.528,height:8.213},
+  {title:'Quadra 21 - Lote 3',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 206,75 m?\nFRENTE: 8 m\nLATERAL: 25,85 m',left:32.797,top:10.364,width:0.516,height:8.213},
+  {title:'Quadra 21 - Lote 2',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 206,67 m?\nFRENTE: 8 m\nLATERAL: 25,84 m',left:33.313,top:10.364,width:0.539,height:8.216},
+  {title:'Quadra 21 - Lote 1',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 258,21 m?\nFRENTE: 10 m\nLATERAL: 25,83 m',left:33.852,top:10.364,width:0.649,height:8.217},
+  {title:'Quadra 19 - Lote 27',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 257,73 m?\nFRENTE: 10 m\nLATERAL: 25,78 m',left:36.301,top:11.142,width:0.645,height:8.379},
+  {title:'Quadra 19 - Lote 26',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 206,08 m?\nFRENTE: 8 m\nLATERAL: 25,77 m',left:36.946,top:11.142,width:0.544,height:8.378},
+  {title:'Quadra 19 - Lote 25',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 205,99 m?\nFRENTE: 8 m\nLATERAL: 25,75 m',left:37.49,top:11.142,width:0.525,height:8.374},
+  {title:'Quadra 19 - Lote 24',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 205,9 m?\nFRENTE: 8 m\nLATERAL: 25,74 m',left:38.015,top:11.142,width:0.514,height:8.374},
+  {title:'Quadra 19 - Lote 23',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 205,81 m?\nFRENTE: 8 m\nLATERAL: 25,73 m',left:38.528,top:11.142,width:0.544,height:8.374},
+  {title:'Quadra 19 - Lote 22',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 205,73 m?\nFRENTE: 8 m\nLATERAL: 25,72 m',left:39.072,top:11.142,width:0.525,height:8.378},
+  {title:'Quadra 19 - Lote 21',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 205,64 m?\nFRENTE: 8 m\nLATERAL: 25,71 m',left:39.597,top:11.142,width:0.514,height:8.374},
+  {title:'Quadra 19 - Lote 20',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 205,55 m?\nFRENTE: 8 m\nLATERAL: 25,7 m',left:40.111,top:11.142,width:0.544,height:8.374},
+  {title:'Quadra 19 - Lote 19',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 205,46 m?\nFRENTE: 8 m\nLATERAL: 25,69 m',left:40.655,top:11.142,width:0.525,height:8.374},
+  {title:'Quadra 19 - Lote 18',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 205,37 m?\nFRENTE: 8 m\nLATERAL: 25,68 m',left:41.18,top:11.142,width:0.514,height:8.378},
+  {title:'Quadra 19 - Lote 17',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 205,28 m?\nFRENTE: 8 m\nLATERAL: 25,67 m',left:41.694,top:11.142,width:0.544,height:8.374},
+  {title:'Quadra 19 - Lote 16',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 205,2 m?\nFRENTE: 8 m\nLATERAL: 25,66 m',left:42.237,top:11.142,width:0.514,height:8.374},
+  {title:'Quadra 19 - Lote 15',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 205,11 m?\nFRENTE: 8 m\nLATERAL: 25,64 m',left:42.752,top:11.142,width:0.525,height:8.374},
+  {title:'Quadra 19 - Lote 14',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 205,02 m?\nFRENTE: 8 m\nLATERAL: 25,63 m',left:43.277,top:11.142,width:0.544,height:8.378},
+  {title:'Quadra 19 - Lote 13',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 204,93 m?\nFRENTE: 8 m\nLATERAL: 25,62 m',left:43.821,top:11.142,width:0.514,height:8.374},
+  {title:'Quadra 19 - Lote 12',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 204,84 m?\nFRENTE: 8 m\nLATERAL: 25,61 m',left:44.334,top:11.142,width:0.525,height:8.374},
+  {title:'Quadra 19 - Lote 11',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 204,75 m?\nFRENTE: 8 m\nLATERAL: 25,6 m',left:44.859,top:11.142,width:0.544,height:8.374},
+  {title:'Quadra 19 - Lote 10',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 204,67 m?\nFRENTE: 8 m\nLATERAL: 25,59 m',left:45.403,top:11.142,width:0.514,height:8.378},
+  {title:'Quadra 19 - Lote 9',tip:'SITUA‚ÌO: 140000\nPROPRIETçRIO: EIDT\nçREA: 204,58 m?\nFRENTE: 8 m\nLATERAL: 25,58 m',left:45.917,top:11.142,width:0.525,height:8.374},
+  {title:'Quadra 19 - Lote 8',tip:'SITUA‚ÌO: 140000\nPROPRIETçRIO: EIDT\nçREA: 204,49 m?\nFRENTE: 8 m\nLATERAL: 25,57 m',left:46.442,top:11.142,width:0.544,height:8.374},
+  {title:'Quadra 19 - Lote 7',tip:'SITUA‚ÌO: 140000\nPROPRIETçRIO: EIDT\nçREA: 204,4 m?\nFRENTE: 8 m\nLATERAL: 25,56 m',left:46.986,top:11.142,width:0.514,height:8.374},
+  {title:'Quadra 19 - Lote 6',tip:'SITUA‚ÌO: 140000\nPROPRIETçRIO: EIDT\nçREA: 204,31 m?\nFRENTE: 8 m\nLATERAL: 25,54 m',left:47.499,top:11.142,width:0.544,height:8.378},
+  {title:'Quadra 19 - Lote 5',tip:'SITUA‚ÌO: 140000\nPROPRIETçRIO: EIDT\nçREA: 204,22 m?\nFRENTE: 8 m\nLATERAL: 25,53 m',left:48.043,top:11.142,width:0.525,height:8.374},
+  {title:'Quadra 19 - Lote 4',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: SOCIEDADE\nçREA: 204,13 m?\nFRENTE: 8 m\nLATERAL: 25,52 m',left:48.558,top:11.142,width:0.514,height:8.374},
+  {title:'Quadra 19 - Lote 3',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 204,05 m?\nFRENTE: 8 m\nLATERAL: 25,51 m',left:49.072,top:11.142,width:0.544,height:8.374},
+  {title:'Quadra 19 - Lote 1',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 254,82 m?\nFRENTE: 10 m\nLATERAL: 25,48 m',left:50.137,top:11.142,width:0.645,height:8.378},
+  {title:'Quadra 19 - Lote 2',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 203,96 m?\nFRENTE: 8 m\nLATERAL: 25,5 m',left:49.616,top:11.142,width:0.522,height:8.378},
+  {title:'Quadra 18 - Lote 6',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 254,48 m?\nFRENTE: 10 m\nLATERAL: 25,45 m',left:51.748,top:12.418,width:0.655,height:8.652},
+  {title:'Quadra 18 - Lote 5',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 203,48 m?\nFRENTE: 8 m\nLATERAL: 25,44 m',left:52.403,top:12.418,width:0.512,height:8.652},
+  {title:'Quadra 18 - Lote 4',tip:'SITUA‚ÌO: 150000\nPROPRIETçRIO: EIDT\nçREA: 203,39 m?\nFRENTE: 8 m\nLATERAL: 25,43 m',left:52.915,top:12.418,width:0.504,height:8.65},
+  {title:'Quadra 18 - Lote 3',tip:'SITUA‚ÌO: 150000\nPROPRIETçRIO: EIDT\nçREA: 203,31 m?\nFRENTE: 8 m\nLATERAL: 25,42 m',left:53.418,top:12.418,width:0.524,height:8.65},
+  {title:'Quadra 18 - Lote 2',tip:'SITUA‚ÌO: 150000\nPROPRIETçRIO: EIDT\nçREA: 203,22 m?\nFRENTE: 8 m\nLATERAL: 25,41 m',left:53.943,top:12.418,width:0.512,height:8.65},
+  {title:'Quadra 18 - Lote 1',tip:'SITUA‚ÌO: 150000\nPROPRIETçRIO: EIDT\nçREA: 203,13 m?\nFRENTE: 8 m\nLATERAL: 25,4 m',left:54.454,top:12.418,width:0.502,height:8.652},
+  {title:'Quadra 18 - Lote 7',tip:'SITUA‚ÌO: A COMBINAR\nPROPRIETçRIO: EIDT\nçREA: 383,53 m?\nFRENTE: 24,54 m\nLATERAL: 25,39 m',left:54.957,top:12.349,width:1.579,height:8.716},
+  {title:'Quadra 11 - Lote 42',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 405 m?\nFRENTE: 15 m\nLATERAL: 27 m',left:4.568,top:46.59,width:0.973,height:8.989},
+  {title:'Quadra 11 - Lote 41',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:5.541,top:46.59,width:0.653,height:8.989},
+  {title:'Quadra 11 - Lote 40',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:6.194,top:46.59,width:0.653,height:8.989},
+  {title:'Quadra 11 - Lote 39',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:6.846,top:46.59,width:0.657,height:8.989},
+  {title:'Quadra 11 - Lote 38',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:7.503,top:46.59,width:0.653,height:8.989},
+  {title:'Quadra 11 - Lote 37',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:8.156,top:46.59,width:0.653,height:8.989},
+  {title:'Quadra 11 - Lote 36',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:8.808,top:46.59,width:0.653,height:8.989},
+  {title:'Quadra 11 - Lote 35',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:9.461,top:46.59,width:0.649,height:8.989},
+  {title:'Quadra 11 - Lote 34',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:10.11,top:46.59,width:0.657,height:8.989},
+  {title:'Quadra 11 - Lote 33',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:10.766,top:46.59,width:0.653,height:8.997},
+  {title:'Quadra 11 - Lote 32',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:11.419,top:46.59,width:0.657,height:8.989},
+  {title:'Quadra 11 - Lote 31',tip:'SITUA‚ÌO: 166000\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:12.076,top:46.59,width:0.649,height:8.989},
+  {title:'Quadra 11 - Lote 30',tip:'SITUA‚ÌO: 166000\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:12.724,top:46.59,width:0.653,height:8.989},
+  {title:'Quadra 11 - Lote 29',tip:'SITUA‚ÌO: 166000\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:13.377,top:46.59,width:0.653,height:8.997},
+  {title:'Quadra 11 - Lote 28',tip:'SITUA‚ÌO: 166000\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:14.03,top:46.59,width:0.653,height:8.989},
+  {title:'Quadra 11 - Lote 27',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:14.682,top:46.59,width:0.657,height:8.989},
+  {title:'Quadra 11 - Lote 26',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:15.339,top:46.59,width:0.649,height:8.989},
+  {title:'Quadra 11 - Lote 25',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:15.988,top:46.59,width:0.653,height:8.997},
+  {title:'Quadra 11 - Lote 24',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: SOCIEDADE\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:16.64,top:46.59,width:0.649,height:8.989},
+  {title:'Quadra 11 - Lote 23',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:17.289,top:46.59,width:0.657,height:8.989},
+  {title:'Quadra 11 - Lote 22',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 351 m?\nFRENTE: 13 m\nLATERAL: 27 m',left:17.946,top:46.59,width:0.8,height:8.989},
+  {title:'Quadra 11 - Lote 21',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 405 m?\nFRENTE: 15 m\nLATERAL: 27 m',left:4.567,top:55.497,width:0.973,height:8.989},
+  {title:'Quadra 11 - Lote 20',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:5.54,top:55.497,width:0.653,height:8.989},
+  {title:'Quadra 11 - Lote 19',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:6.193,top:55.497,width:0.653,height:8.989},
+  {title:'Quadra 11 - Lote 18',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:6.845,top:55.497,width:0.657,height:8.989},
+  {title:'Quadra 11 - Lote 17',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:7.502,top:55.497,width:0.653,height:8.989},
+  {title:'Quadra 11 - Lote 16',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:8.155,top:55.497,width:0.653,height:8.989},
+  {title:'Quadra 11 - Lote 15',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:8.807,top:55.497,width:0.653,height:8.989},
+  {title:'Quadra 11 - Lote 14',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:9.46,top:55.497,width:0.649,height:8.989},
+  {title:'Quadra 11 - Lote 13',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:10.108,top:55.497,width:0.657,height:8.989},
+  {title:'Quadra 11 - Lote 12',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:10.765,top:55.497,width:0.653,height:8.997},
+  {title:'Quadra 11 - Lote 11',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:11.418,top:55.497,width:0.657,height:8.989},
+  {title:'Quadra 11 - Lote 10',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:12.075,top:55.497,width:0.649,height:8.989},
+  {title:'Quadra 11 - Lote 9',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:12.723,top:55.497,width:0.653,height:8.989},
+  {title:'Quadra 11 - Lote 8',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:13.376,top:55.497,width:0.653,height:8.997},
+  {title:'Quadra 11 - Lote 7',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:14.028,top:55.497,width:0.653,height:8.989},
+  {title:'Quadra 11 - Lote 6',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:14.681,top:55.497,width:0.657,height:8.989},
+  {title:'Quadra 11 - Lote 5',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:15.338,top:55.497,width:0.649,height:8.989},
+  {title:'Quadra 11 - Lote 4',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:15.986,top:55.497,width:0.653,height:8.997},
+  {title:'Quadra 11 - Lote 3',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:16.639,top:55.497,width:0.649,height:8.989},
+  {title:'Quadra 11 - Lote 2',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: SOCIEDADE\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:17.288,top:55.497,width:0.657,height:8.989},
+  {title:'Quadra 11 - Lote 1',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 351 m?\nFRENTE: 13 m\nLATERAL: 27 m',left:17.944,top:55.497,width:0.8,height:8.989},
+  {title:'Quadra 5 - Lote 21',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 420,63 m?\nFRENTE: 15 m\nLATERAL: 28,04 m',left:4.443,top:69.827,width:0.974,height:8.281},
+  {title:'Quadra 5 - Lote 20',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 280,48 m?\nFRENTE: 10 m\nLATERAL: 28,05 m',left:5.417,top:69.827,width:0.653,height:8.281},
+  {title:'Quadra 5 - Lote 19',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 280,52 m?\nFRENTE: 10 m\nLATERAL: 28,05 m',left:6.071,top:69.827,width:0.653,height:8.281},
+  {title:'Quadra 5 - Lote 18',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 280,55 m?\nFRENTE: 10 m\nLATERAL: 28,05 m',left:6.724,top:69.827,width:0.658,height:8.281},
+  {title:'Quadra 5 - Lote 17',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 280,61 m?\nFRENTE: 10 m\nLATERAL: 28,06 m',left:7.382,top:69.827,width:0.653,height:8.281},
+  {title:'Quadra 5 - Lote 16',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 280,65 m?\nFRENTE: 10 m\nLATERAL: 28,06 m',left:8.035,top:69.827,width:0.653,height:8.281},
+  {title:'Quadra 5 - Lote 15',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 280,69 m?\nFRENTE: 10 m\nLATERAL: 28,07 m',left:8.688,top:69.827,width:0.653,height:8.281},
+  {title:'Quadra 5 - Lote 14',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 280,74 m?\nFRENTE: 10 m\nLATERAL: 28,07 m',left:9.342,top:69.827,width:0.649,height:8.281},
+  {title:'Quadra 5 - Lote 13',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 280,78 m?\nFRENTE: 10 m\nLATERAL: 28,08 m',left:9.991,top:69.827,width:0.658,height:8.281},
+  {title:'Quadra 5 - Lote 12',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 280,82 m?\nFRENTE: 10 m\nLATERAL: 28,08 m',left:10.649,top:69.827,width:0.653,height:8.289},
+  {title:'Quadra 5 - Lote 11',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 280,87 m?\nFRENTE: 10 m\nLATERAL: 28,08 m',left:11.302,top:69.827,width:0.658,height:8.281},
+  {title:'Quadra 5 - Lote 10',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 280,91 m?\nFRENTE: 10 m\nLATERAL: 28,09 m',left:11.96,top:69.827,width:0.649,height:8.281},
+  {title:'Quadra 5 - Lote 9',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 280,96 m?\nFRENTE: 10 m\nLATERAL: 28,09 m',left:12.609,top:69.827,width:0.653,height:8.281},
+  {title:'Quadra 5 - Lote 8',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 281 m?\nFRENTE: 10 m\nLATERAL: 28,1 m',left:13.262,top:69.827,width:0.653,height:8.289},
+  {title:'Quadra 5 - Lote 7',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 281,04 m?\nFRENTE: 10 m\nLATERAL: 28,1 m',left:13.916,top:69.827,width:0.653,height:8.281},
+  {title:'Quadra 5 - Lote 6',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 281,09 m?\nFRENTE: 10 m\nLATERAL: 28,11 m',left:14.569,top:69.827,width:0.658,height:8.281},
+  {title:'Quadra 5 - Lote 5',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 281,13 m?\nFRENTE: 10 m\nLATERAL: 28,11 m',left:15.227,top:69.827,width:0.649,height:8.281},
+  {title:'Quadra 5 - Lote 4',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 281,17 m?\nFRENTE: 10 m\nLATERAL: 28,12 m',left:15.876,top:69.827,width:0.653,height:8.289},
+  {title:'Quadra 5 - Lote 3',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 281,22 m?\nFRENTE: 10 m\nLATERAL: 28,12 m',left:16.53,top:69.827,width:0.649,height:8.281},
+  {title:'Quadra 5 - Lote 2',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 281,26 m?\nFRENTE: 10 m\nLATERAL: 28,12 m',left:17.179,top:69.827,width:0.658,height:8.281},
+  {title:'Quadra 5 - Lote 1',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 365,7 m?\nFRENTE: 10 m\nLATERAL: 28,13 m',left:17.836,top:69.827,width:0.801,height:8.281},
+  {title:'Quadra 16 - Lote 42',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 405 m?\nFRENTE: 15 m\nLATERAL: 27 m',left:4.666,top:22.659,width:0.972,height:9.199},
+  {title:'Quadra 16 - Lote 41',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:5.638,top:22.659,width:0.652,height:9.199},
+  {title:'Quadra 16 - Lote 40',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:6.29,top:22.659,width:0.652,height:9.199},
+  {title:'Quadra 16 - Lote 39',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:6.941,top:22.659,width:0.656,height:9.199},
+  {title:'Quadra 16 - Lote 38',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:7.597,top:22.659,width:0.652,height:9.199},
+  {title:'Quadra 16 - Lote 37',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:8.249,top:22.659,width:0.652,height:9.199},
+  {title:'Quadra 16 - Lote 36',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:8.901,top:22.659,width:0.652,height:9.199},
+  {title:'Quadra 16 - Lote 35',tip:'SITUA‚ÌO: 166000\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:9.552,top:22.659,width:0.648,height:9.199},
+  {title:'Quadra 16 - Lote 34',tip:'SITUA‚ÌO: 166000\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:10.2,top:22.659,width:0.656,height:9.199},
+  {title:'Quadra 16 - Lote 33',tip:'SITUA‚ÌO: A COMBINAR\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:10.856,top:22.659,width:0.652,height:9.207},
+  {title:'Quadra 16 - Lote 32',tip:'SITUA‚ÌO: A COMBINAR\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:11.508,top:22.659,width:0.656,height:9.199},
+  {title:'Quadra 16 - Lote 31',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:12.164,top:22.659,width:0.648,height:9.199},
+  {title:'Quadra 16 - Lote 30',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:12.811,top:22.659,width:0.652,height:9.199},
+  {title:'Quadra 16 - Lote 29',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:13.463,top:22.659,width:0.652,height:9.207},
+  {title:'Quadra 16 - Lote 28',tip:'SITUA‚ÌO: 166000\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:14.115,top:22.659,width:0.652,height:9.199},
+  {title:'Quadra 16 - Lote 27',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:14.767,top:22.659,width:0.656,height:9.199},
+  {title:'Quadra 16 - Lote 26',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:15.423,top:22.659,width:0.648,height:9.199},
+  {title:'Quadra 16 - Lote 25',tip:'SITUA‚ÌO: 166000\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:16.07,top:22.659,width:0.652,height:9.207},
+  {title:'Quadra 16 - Lote 24',tip:'SITUA‚ÌO: 166000\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:16.722,top:22.659,width:0.648,height:9.199},
+  {title:'Quadra 16 - Lote 23',tip:'SITUA‚ÌO: 166000\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:17.37,top:22.659,width:0.656,height:9.199},
+  {title:'Quadra 16 - Lote 22',tip:'SITUA‚ÌO: A COMBINAR\nPROPRIETçRIO: EIDT\nçREA: 351 m?\nFRENTE: 13 m\nLATERAL: 27 m',left:18.026,top:22.659,width:0.799,height:9.199},
+  {title:'Quadra 16 - Lote 21',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 405 m?\nFRENTE: 15 m\nLATERAL: 27 m',left:4.665,top:31.774,width:0.972,height:9.199},
+  {title:'Quadra 16 - Lote 20',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:5.637,top:31.774,width:0.652,height:9.199},
+  {title:'Quadra 16 - Lote 19',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:6.288,top:31.774,width:0.652,height:9.199},
+  {title:'Quadra 16 - Lote 18',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:6.94,top:31.774,width:0.656,height:9.199},
+  {title:'Quadra 16 - Lote 17',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:7.596,top:31.774,width:0.652,height:9.199},
+  {title:'Quadra 16 - Lote 16',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:8.248,top:31.774,width:0.652,height:9.199},
+  {title:'Quadra 16 - Lote 15',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:8.899,top:31.774,width:0.652,height:9.199},
+  {title:'Quadra 16 - Lote 14',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:9.551,top:31.774,width:0.648,height:9.199},
+  {title:'Quadra 16 - Lote 13',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:10.199,top:31.774,width:0.656,height:9.199},
+  {title:'Quadra 16 - Lote 12',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:10.855,top:31.774,width:0.652,height:9.207},
+  {title:'Quadra 16 - Lote 11',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:11.507,top:31.774,width:0.656,height:9.199},
+  {title:'Quadra 16 - Lote 10',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:12.162,top:31.774,width:0.648,height:9.199},
+  {title:'Quadra 16 - Lote 9',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:12.81,top:31.774,width:0.652,height:9.199},
+  {title:'Quadra 16 - Lote 8',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:13.462,top:31.774,width:0.652,height:9.207},
+  {title:'Quadra 16 - Lote 7',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:14.114,top:31.774,width:0.652,height:9.199},
+  {title:'Quadra 16 - Lote 6',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:14.765,top:31.774,width:0.656,height:9.199},
+  {title:'Quadra 16 - Lote 5',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:15.421,top:31.774,width:0.648,height:9.199},
+  {title:'Quadra 16 - Lote 4',tip:'SITUA‚ÌO: A COMBINAR\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:16.069,top:31.774,width:0.652,height:9.207},
+  {title:'Quadra 16 - Lote 3',tip:'SITUA‚ÌO: 166000\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:16.721,top:31.774,width:0.648,height:9.199},
+  {title:'Quadra 16 - Lote 2',tip:'SITUA‚ÌO: 166000\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:17.368,top:31.774,width:0.656,height:9.199},
+  {title:'Quadra 16 - Lote 1',tip:'SITUA‚ÌO: A COMBINAR\nPROPRIETçRIO: EIDT\nçREA: 351 m?\nFRENTE: 13 m\nLATERAL: 27 m',left:18.024,top:31.774,width:0.799,height:9.199},
+  {title:'Quadra 15 - Lote 34',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: INSTITUCIONAL\nçREA:  m?\nFRENTE:  m\nLATERAL:  m',left:20.054,top:24.015,width:3.277,height:18.343},
+  {title:'Quadra 15 - Lote 33',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:23.348,top:24.043,width:0.662,height:9.197},
+  {title:'Quadra 15 - Lote 32',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:24.01,top:24.043,width:0.662,height:9.197},
+  {title:'Quadra 15 - Lote 31',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:24.671,top:24.043,width:0.666,height:9.197},
+  {title:'Quadra 15 - Lote 30',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:25.337,top:24.043,width:0.662,height:9.197},
+  {title:'Quadra 15 - Lote 29',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:25.999,top:24.043,width:0.662,height:9.197},
+  {title:'Quadra 15 - Lote 28',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:26.661,top:24.043,width:0.662,height:9.197},
+  {title:'Quadra 15 - Lote 26',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:27.98,top:24.043,width:0.666,height:9.197},
+  {title:'Quadra 15 - Lote 27',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:27.322,top:24.043,width:0.658,height:9.197},
+  {title:'Quadra 15 - Lote 25',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:28.646,top:24.043,width:0.662,height:9.205},
+  {title:'Quadra 15 - Lote 24',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:29.307,top:24.043,width:0.666,height:9.197},
+  {title:'Quadra 15 - Lote 23',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:29.973,top:24.043,width:0.658,height:9.197},
+  {title:'Quadra 15 - Lote 22',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:30.631,top:24.043,width:0.662,height:9.197},
+  {title:'Quadra 15 - Lote 21',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:31.293,top:24.043,width:0.662,height:9.205},
+  {title:'Quadra 15 - Lote 20',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:31.954,top:24.043,width:0.662,height:9.197},
+  {title:'Quadra 15 - Lote 16',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:23.347,top:33.156,width:0.662,height:9.197},
+  {title:'Quadra 15 - Lote 15',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:24.009,top:33.156,width:0.662,height:9.197},
+  {title:'Quadra 15 - Lote 14',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:24.67,top:33.156,width:0.666,height:9.197},
+  {title:'Quadra 15 - Lote 13',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:25.336,top:33.156,width:0.662,height:9.197},
+  {title:'Quadra 15 - Lote 12',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:25.998,top:33.156,width:0.662,height:9.197},
+  {title:'Quadra 15 - Lote 11',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:26.659,top:33.156,width:0.662,height:9.197},
+  {title:'Quadra 15 - Lote 10',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:27.321,top:33.156,width:0.658,height:9.197},
+  {title:'Quadra 15 - Lote 9',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:27.979,top:33.156,width:0.666,height:9.197},
+  {title:'Quadra 15 - Lote 8',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:28.645,top:33.156,width:0.662,height:9.205},
+  {title:'Quadra 15 - Lote 7',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:29.306,top:33.156,width:0.666,height:9.197},
+  {title:'Quadra 15 - Lote 6',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:29.972,top:33.156,width:0.658,height:9.197},
+  {title:'Quadra 15 - Lote 5',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:30.63,top:33.156,width:0.662,height:9.197},
+  {title:'Quadra 15 - Lote 4',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:31.291,top:33.156,width:0.662,height:9.205},
+  {title:'Quadra 15 - Lote 3',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:31.953,top:33.156,width:0.662,height:9.197},
+  {title:'Quadra 15 - Lote 19',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 305,21 m?\nFRENTE: 10,8 m\nLATERAL: 28,26 m',left:32.608,top:24.043,width:1.868,height:3.705},
+  {title:'Quadra 15 - Lote 18',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 305,21 m?\nFRENTE: 10,8 m\nLATERAL: 28,26 m',left:32.608,top:27.747,width:1.868,height:3.705},
+  {title:'Quadra 15 - Lote 17',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 305,21 m?\nFRENTE: 10,8 m\nLATERAL: 28,26 m',left:32.608,top:31.452,width:1.87,height:3.705},
+  {title:'Quadra 15 - Lote 2',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 305,21 m?\nFRENTE: 10,8 m\nLATERAL: 28,26 m',left:32.608,top:35.156,width:1.868,height:3.705},
+  {title:'Quadra 15 - Lote 1',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 305,21 m?\nFRENTE: 10,8 m\nLATERAL: 28,26 m',left:32.608,top:38.861,width:1.87,height:3.613},
+  {title:'Quadra 12 - Lote 40',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:39.823,top:24.942,width:0.665,height:9.117},
+  {title:'Quadra 12 - Lote 39',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:40.488,top:24.942,width:0.66,height:9.117},
+  {title:'Quadra 12 - Lote 38',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:41.148,top:24.942,width:0.664,height:9.117},
+  {title:'Quadra 12 - Lote 37',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:41.812,top:24.942,width:0.66,height:9.117},
+  {title:'Quadra 12 - Lote 36',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:42.472,top:24.942,width:0.66,height:9.117},
+  {title:'Quadra 12 - Lote 35',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:43.132,top:24.942,width:0.66,height:9.117},
+  {title:'Quadra 12 - Lote 34',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:43.792,top:24.942,width:0.656,height:9.117},
+  {title:'Quadra 12 - Lote 33',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:44.448,top:24.942,width:0.664,height:9.117},
+  {title:'Quadra 12 - Lote 32',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:45.112,top:24.942,width:0.66,height:9.126},
+  {title:'Quadra 12 - Lote 31',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:45.772,top:24.942,width:0.664,height:9.117},
+  {title:'Quadra 12 - Lote 30',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:46.436,top:24.942,width:0.656,height:9.117},
+  {title:'Quadra 12 - Lote 29',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:47.092,top:24.942,width:0.66,height:9.117},
+  {title:'Quadra 12 - Lote 28',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:47.752,top:24.942,width:0.66,height:9.126},
+  {title:'Quadra 12 - Lote 27',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:48.412,top:24.942,width:0.66,height:9.117},
+  {title:'Quadra 12 - Lote 43',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:37.844,top:24.942,width:0.66,height:9.117},
+  {title:'Quadra 12 - Lote 42',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:38.504,top:24.942,width:0.66,height:9.095},
+  {title:'Quadra 12 - Lote 41',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:39.164,top:24.942,width:0.659,height:9.095},
+  {title:'Quadra 12 - Lote 18',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:39.827,top:34.067,width:0.66,height:9.117},
+  {title:'Quadra 12 - Lote 17',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:40.487,top:34.067,width:0.66,height:9.117},
+  {title:'Quadra 12 - Lote 16',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:41.146,top:34.067,width:0.664,height:9.117},
+  {title:'Quadra 12 - Lote 15',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:41.81,top:34.067,width:0.66,height:9.117},
+  {title:'Quadra 12 - Lote 14',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:42.47,top:34.067,width:0.66,height:9.117},
+  {title:'Quadra 12 - Lote 13',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:43.13,top:34.067,width:0.66,height:9.117},
+  {title:'Quadra 12 - Lote 12',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:43.789,top:34.067,width:0.656,height:9.117},
+  {title:'Quadra 12 - Lote 11',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:44.445,top:34.067,width:0.664,height:9.117},
+  {title:'Quadra 12 - Lote 10',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:45.109,top:34.067,width:0.66,height:9.126},
+  {title:'Quadra 12 - Lote 9',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:45.768,top:34.067,width:0.664,height:9.117},
+  {title:'Quadra 12 - Lote 8',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:46.432,top:34.067,width:0.656,height:9.117},
+  {title:'Quadra 12 - Lote 7',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:47.088,top:34.067,width:0.66,height:9.117},
+  {title:'Quadra 12 - Lote 6',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:47.747,top:34.067,width:0.66,height:9.126},
+  {title:'Quadra 12 - Lote 5',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:48.407,top:34.067,width:0.66,height:9.117},
+  {title:'Quadra 12 - Lote 21',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:37.844,top:34.067,width:0.66,height:9.117},
+  {title:'Quadra 12 - Lote 20',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:38.504,top:34.067,width:0.66,height:9.117},
+  {title:'Quadra 12 - Lote 19',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:39.163,top:34.067,width:0.664,height:9.117},
+  {title:'Quadra 12 - Lote 26',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10,8 m\nLATERAL: 25 m',left:49.072,top:24.942,width:1.643,height:3.65},
+  {title:'Quadra 12 - Lote 24',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10,8 m\nLATERAL: 25 m',left:49.072,top:28.592,width:1.648,height:3.65},
+  {title:'Quadra 12 - Lote 22',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10,8 m\nLATERAL: 25 m',left:49.072,top:32.242,width:1.648,height:3.65},
+  {title:'Quadra 12 - Lote 3',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10,8 m\nLATERAL: 25 m',left:49.072,top:35.891,width:1.648,height:3.65},
+  {title:'Quadra 12 - Lote 1',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10,8 m\nLATERAL: 25 m',left:49.072,top:39.541,width:1.648,height:3.673},
+  {title:'Quadra 12 - Lote 44',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10,8 m\nLATERAL: 25 m',left:36.196,top:24.942,width:1.643,height:3.65},
+  {title:'Quadra 12 - Lote 25',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10,8 m\nLATERAL: 25 m',left:36.196,top:28.592,width:1.648,height:3.65},
+  {title:'Quadra 12 - Lote 23',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10,8 m\nLATERAL: 25 m',left:36.196,top:32.242,width:1.648,height:3.65},
+  {title:'Quadra 12 - Lote 4',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10,8 m\nLATERAL: 25 m',left:36.196,top:35.891,width:1.648,height:3.65},
+  {title:'Quadra 12 - Lote 2',tip:'SITUA‚ÌO: A COMBINAR\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10,8 m\nLATERAL: 25 m',left:36.196,top:39.541,width:1.648,height:3.673},
+  {title:'Quadra 8 - Lote 40',tip:'SITUA‚ÌO: R$ 740,00/M2\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:39.774,top:48.584,width:0.667,height:8.858},
+  {title:'Quadra 8 - Lote 39',tip:'SITUA‚ÌO: R$ 740,00/M2\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:40.441,top:48.584,width:0.661,height:8.858},
+  {title:'Quadra 8 - Lote 38',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:41.102,top:48.584,width:0.665,height:8.858},
+  {title:'Quadra 8 - Lote 37',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:41.768,top:48.584,width:0.661,height:8.858},
+  {title:'Quadra 8 - Lote 36',tip:'SITUA‚ÌO: R$ 740,00/M2\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:42.429,top:48.584,width:0.661,height:8.858},
+  {title:'Quadra 8 - Lote 35',tip:'SITUA‚ÌO: R$ 740,00/M2\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:43.091,top:48.584,width:0.661,height:8.858},
+  {title:'Quadra 8 - Lote 34',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:43.752,top:48.584,width:0.657,height:8.858},
+  {title:'Quadra 8 - Lote 33',tip:'SITUA‚ÌO: R$ 740,00/M2\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:44.409,top:48.584,width:0.665,height:8.858},
+  {title:'Quadra 8 - Lote 32',tip:'SITUA‚ÌO: R$ 740,00/M2\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:45.075,top:48.584,width:0.661,height:8.866},
+  {title:'Quadra 8 - Lote 31',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:45.736,top:48.584,width:0.665,height:8.858},
+  {title:'Quadra 8 - Lote 30',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:46.401,top:48.584,width:0.657,height:8.858},
+  {title:'Quadra 8 - Lote 29',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:47.059,top:48.584,width:0.661,height:8.858},
+  {title:'Quadra 8 - Lote 28',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:47.72,top:48.584,width:0.661,height:8.866},
+  {title:'Quadra 8 - Lote 27',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:48.381,top:48.584,width:0.661,height:8.858},
+  {title:'Quadra 8 - Lote 43',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:37.792,top:48.584,width:0.661,height:8.858},
+  {title:'Quadra 8 - Lote 42',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:38.453,top:48.584,width:0.661,height:8.836},
+  {title:'Quadra 8 - Lote 41',tip:'SITUA‚ÌO: R$ 740,00/M2\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:39.114,top:48.584,width:0.66,height:8.836},
+  {title:'Quadra 8 - Lote 18',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:39.779,top:57.451,width:0.661,height:8.858},
+  {title:'Quadra 8 - Lote 17',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:40.44,top:57.451,width:0.661,height:8.858},
+  {title:'Quadra 8 - Lote 16',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:41.101,top:57.451,width:0.665,height:8.858},
+  {title:'Quadra 8 - Lote 15',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:41.766,top:57.451,width:0.661,height:8.858},
+  {title:'Quadra 8 - Lote 14',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:42.427,top:57.451,width:0.661,height:8.858},
+  {title:'Quadra 8 - Lote 13',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:43.088,top:57.451,width:0.661,height:8.858},
+  {title:'Quadra 8 - Lote 12',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:43.749,top:57.451,width:0.657,height:8.858},
+  {title:'Quadra 8 - Lote 11',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:44.406,top:57.451,width:0.665,height:8.858},
+  {title:'Quadra 8 - Lote 10',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:45.071,top:57.451,width:0.661,height:8.866},
+  {title:'Quadra 8 - Lote 9',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:45.732,top:57.451,width:0.665,height:8.858},
+  {title:'Quadra 8 - Lote 8',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:46.397,top:57.451,width:0.657,height:8.858},
+  {title:'Quadra 8 - Lote 7',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:47.054,top:57.451,width:0.661,height:8.858},
+  {title:'Quadra 8 - Lote 6',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:47.715,top:57.451,width:0.661,height:8.866},
+  {title:'Quadra 8 - Lote 5',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:48.376,top:57.451,width:0.661,height:8.858},
+  {title:'Quadra 8 - Lote 21',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:37.792,top:57.451,width:0.661,height:8.858},
+  {title:'Quadra 8 - Lote 20',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:38.453,top:57.451,width:0.661,height:8.858},
+  {title:'Quadra 8 - Lote 19',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:39.114,top:57.451,width:0.665,height:8.858},
+  {title:'Quadra 8 - Lote 26',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10,8 m\nLATERAL: 25 m',left:49.043,top:48.584,width:1.646,height:3.546},
+  {title:'Quadra 8 - Lote 24',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10,8 m\nLATERAL: 25 m',left:49.043,top:52.131,width:1.652,height:3.546},
+  {title:'Quadra 8 - Lote 22',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10,8 m\nLATERAL: 25 m',left:49.043,top:55.677,width:1.652,height:3.546},
+  {title:'Quadra 8 - Lote 3',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10,8 m\nLATERAL: 25 m',left:49.043,top:59.223,width:1.652,height:3.546},
+  {title:'Quadra 8 - Lote 1',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: SOCIEDADE\nçREA: 270 m?\nFRENTE: 10,8 m\nLATERAL: 25 m',left:49.043,top:62.769,width:1.652,height:3.568},
+  {title:'Quadra 8 - Lote 44',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10,8 m\nLATERAL: 25 m',left:36.14,top:48.584,width:1.646,height:3.546},
+  {title:'Quadra 8 - Lote 25',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10,8 m\nLATERAL: 20 m',left:36.14,top:52.131,width:1.652,height:3.546},
+  {title:'Quadra 8 - Lote 23',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10,8 m\nLATERAL: 20 m',left:36.14,top:55.677,width:1.652,height:3.546},
+  {title:'Quadra 8 - Lote 4',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10,8 m\nLATERAL: 20 m',left:36.14,top:59.223,width:1.652,height:3.546},
+  {title:'Quadra 8 - Lote 2',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:36.14,top:62.769,width:1.652,height:3.568},
+  {title:'Quadra 10 - Lote 40',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:23.509,top:47.547,width:0.656,height:8.832},
+  {title:'Quadra 10 - Lote 39',tip:'SITUA‚ÌO: 170000\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:24.165,top:47.547,width:0.667,height:8.832},
+  {title:'Quadra 10 - Lote 38',tip:'SITUA‚ÌO: 170000\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:24.832,top:47.547,width:0.655,height:8.832},
+  {title:'Quadra 10 - Lote 37',tip:'SITUA‚ÌO: 170000\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:25.487,top:47.547,width:0.667,height:8.832},
+  {title:'Quadra 10 - Lote 36',tip:'SITUA‚ÌO: 170000\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:26.154,top:47.547,width:0.651,height:8.832},
+  {title:'Quadra 10 - Lote 35',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:26.805,top:47.547,width:0.667,height:8.832},
+  {title:'Quadra 10 - Lote 34',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:27.472,top:47.547,width:0.663,height:8.832},
+  {title:'Quadra 10 - Lote 33',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:28.135,top:47.547,width:0.655,height:8.832},
+  {title:'Quadra 10 - Lote 32',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:28.79,top:47.547,width:0.667,height:8.84},
+  {title:'Quadra 10 - Lote 31',tip:'SITUA‚ÌO: 170000\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:29.457,top:47.547,width:0.655,height:8.832},
+  {title:'Quadra 10 - Lote 30',tip:'SITUA‚ÌO: 170000\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:30.112,top:47.547,width:0.663,height:8.832},
+  {title:'Quadra 10 - Lote 29',tip:'SITUA‚ÌO: 170000\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:30.775,top:47.547,width:0.651,height:8.832},
+  {title:'Quadra 10 - Lote 28',tip:'SITUA‚ÌO: 170000\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:31.426,top:47.547,width:0.667,height:8.84},
+  {title:'Quadra 10 - Lote 27',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:32.093,top:47.547,width:0.651,height:8.832},
+  {title:'Quadra 10 - Lote 43',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:21.526,top:47.547,width:0.667,height:8.832},
+  {title:'Quadra 10 - Lote 42',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:22.193,top:47.547,width:0.651,height:8.81},
+  {title:'Quadra 10 - Lote 41',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:22.843,top:47.547,width:0.666,height:8.81},
+  {title:'Quadra 10 - Lote 18',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:23.514,top:56.387,width:0.65,height:8.832},
+  {title:'Quadra 10 - Lote 17',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:24.164,top:56.387,width:0.667,height:8.832},
+  {title:'Quadra 10 - Lote 16',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:24.831,top:56.387,width:0.654,height:8.832},
+  {title:'Quadra 10 - Lote 15',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:25.485,top:56.387,width:0.667,height:8.832},
+  {title:'Quadra 10 - Lote 14',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:26.152,top:56.387,width:0.65,height:8.832},
+  {title:'Quadra 10 - Lote 13',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:26.802,top:56.387,width:0.667,height:8.832},
+  {title:'Quadra 10 - Lote 12',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:27.469,top:56.387,width:0.663,height:8.832},
+  {title:'Quadra 10 - Lote 11',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:28.132,top:56.387,width:0.654,height:8.832},
+  {title:'Quadra 10 - Lote 10',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:28.786,top:56.387,width:0.667,height:8.84},
+  {title:'Quadra 10 - Lote 9',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:29.453,top:56.387,width:0.654,height:8.832},
+  {title:'Quadra 10 - Lote 8',tip:'SITUA‚ÌO: 170000\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:30.108,top:56.387,width:0.663,height:8.832},
+  {title:'Quadra 10 - Lote 7',tip:'SITUA‚ÌO: 170000\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:30.77,top:56.387,width:0.65,height:8.832},
+  {title:'Quadra 10 - Lote 6',tip:'SITUA‚ÌO: 170000\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:31.421,top:56.387,width:0.667,height:8.84},
+  {title:'Quadra 10 - Lote 5',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:32.087,top:56.387,width:0.65,height:8.832},
+  {title:'Quadra 10 - Lote 21',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:21.526,top:56.387,width:0.667,height:8.832},
+  {title:'Quadra 10 - Lote 20',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:22.192,top:56.387,width:0.65,height:8.832},
+  {title:'Quadra 10 - Lote 19',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:22.843,top:56.387,width:0.671,height:8.832},
+  {title:'Quadra 10 - Lote 26',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10,8 m\nLATERAL: 27 m',left:32.743,top:47.547,width:1.644,height:3.536},
+  {title:'Quadra 10 - Lote 24',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10,8 m\nLATERAL: 27 m',left:32.743,top:51.082,width:1.65,height:3.536},
+  {title:'Quadra 10 - Lote 22',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10,8 m\nLATERAL: 27 m',left:32.743,top:54.618,width:1.65,height:3.536},
+  {title:'Quadra 10 - Lote 3',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10,8 m\nLATERAL: 27 m',left:32.743,top:58.154,width:1.65,height:3.536},
+  {title:'Quadra 10 - Lote 1',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10,8 m\nLATERAL: 27 m',left:32.743,top:61.69,width:1.65,height:3.558},
+  {title:'Quadra 10 - Lote 44',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10,8 m\nLATERAL: 27 m',left:19.876,top:47.547,width:1.644,height:3.536},
+  {title:'Quadra 10 - Lote 25',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10,8 m\nLATERAL: 27 m',left:19.876,top:51.082,width:1.65,height:3.536},
+  {title:'Quadra 10 - Lote 23',tip:'SITUA‚ÌO: 170000\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10,8 m\nLATERAL: 27 m',left:19.876,top:54.618,width:1.65,height:3.536},
+  {title:'Quadra 10 - Lote 4',tip:'SITUA‚ÌO: 170000\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10,8 m\nLATERAL: 27 m',left:19.876,top:58.154,width:1.65,height:3.536},
+  {title:'Quadra 10 - Lote 2',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: SOCIEDADE\nçREA: 270 m?\nFRENTE: 10,8 m\nLATERAL: 27 m',left:19.876,top:61.69,width:1.65,height:3.558},
+  {title:'Quadra 4 - Lote 19',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 281,57 m?\nFRENTE: 10 m\nLATERAL: 28,15 m',left:21.85,top:71.111,width:0.662,height:8.937},
+  {title:'Quadra 4 - Lote 18',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 281,61 m?\nFRENTE: 10 m\nLATERAL: 28,16 m',left:22.511,top:71.111,width:0.662,height:8.937},
+  {title:'Quadra 4 - Lote 17',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 281,65 m?\nFRENTE: 10 m\nLATERAL: 28,16 m',left:23.173,top:71.111,width:0.671,height:8.937},
+  {title:'Quadra 4 - Lote 16',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 281,7 m?\nFRENTE: 10 m\nLATERAL: 28,17 m',left:23.844,top:71.111,width:0.656,height:8.937},
+  {title:'Quadra 4 - Lote 15',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 281,74 m?\nFRENTE: 10 m\nLATERAL: 28,17 m',left:24.5,top:71.111,width:0.662,height:8.937},
+  {title:'Quadra 4 - Lote 14',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 281,78 m?\nFRENTE: 10 m\nLATERAL: 28,18 m',left:25.162,top:71.111,width:0.662,height:8.937},
+  {title:'Quadra 4 - Lote 13',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 281,83 m?\nFRENTE: 10 m\nLATERAL: 28,18 m',left:25.824,top:71.111,width:0.658,height:8.937},
+  {title:'Quadra 4 - Lote 12',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 281,87 m?\nFRENTE: 10 m\nLATERAL: 28,18 m',left:26.481,top:71.111,width:0.666,height:8.937},
+  {title:'Quadra 4 - Lote 11',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 281,92 m?\nFRENTE: 10 m\nLATERAL: 28,19 m',left:27.147,top:71.111,width:0.662,height:8.946},
+  {title:'Quadra 4 - Lote 10',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 281,96 m?\nFRENTE: 10 m\nLATERAL: 28,19 m',left:27.809,top:71.111,width:0.666,height:8.937},
+  {title:'Quadra 4 - Lote 9',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 282 m?\nFRENTE: 10 m\nLATERAL: 28,2 m',left:28.474,top:71.111,width:0.658,height:8.937},
+  {title:'Quadra 4 - Lote 8',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 282,05 m?\nFRENTE: 10 m\nLATERAL: 28,2 m',left:29.132,top:71.111,width:0.667,height:8.937},
+  {title:'Quadra 4 - Lote 7',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 282,09 m?\nFRENTE: 10 m\nLATERAL: 28,21 m',left:29.799,top:71.111,width:0.656,height:8.946},
+  {title:'Quadra 4 - Lote 6',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 282,13 m?\nFRENTE: 10 m\nLATERAL: 28,21 m',left:30.455,top:71.111,width:0.662,height:8.937},
+  {title:'Quadra 4 - Lote 5',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 282,18 m?\nFRENTE: 10 m\nLATERAL: 28,22 m',left:31.117,top:71.111,width:0.666,height:8.937},
+  {title:'Quadra 4 - Lote 4',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 282,22 m?\nFRENTE: 10 m\nLATERAL: 28,22 m',left:31.783,top:71.111,width:0.658,height:8.937},
+  {title:'Quadra 4 - Lote 3',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 282,26 m?\nFRENTE: 10 m\nLATERAL: 28,22 m',left:32.44,top:71.111,width:0.662,height:8.946},
+  {title:'Quadra 4 - Lote 2',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 282,31 m?\nFRENTE: 10 m\nLATERAL: 28,23 m',left:33.102,top:71.111,width:0.658,height:8.937},
+  {title:'Quadra 4 - Lote 1',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 282,35 m?\nFRENTE: 10 m\nLATERAL: 28,23 m',left:33.759,top:71.111,width:0.671,height:8.937},
+  {title:'Quadra 4 - Lote 22',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 281,44 m?\nFRENTE: 10 m\nLATERAL: 28,14 m',left:19.865,top:71.111,width:0.662,height:8.937},
+  {title:'Quadra 4 - Lote 21',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 281,48 m?\nFRENTE: 10 m\nLATERAL: 28,15 m',left:20.526,top:71.111,width:0.662,height:8.937},
+  {title:'Quadra 4 - Lote 20',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 281,52 m?\nFRENTE: 10 m\nLATERAL: 28,15 m',left:21.188,top:71.111,width:0.662,height:8.915},
+  {title:'Quadra 3 - Lote 19',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 282,64 m?\nFRENTE: 10 m\nLATERAL: 28,26 m',left:37.997,top:71.862,width:0.656,height:9.497},
+  {title:'Quadra 3 - Lote 18',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 282,68 m?\nFRENTE: 10 m\nLATERAL: 28,27 m',left:38.653,top:71.862,width:0.656,height:9.497},
+  {title:'Quadra 3 - Lote 17',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 282,72 m?\nFRENTE: 10 m\nLATERAL: 28,27 m',left:39.309,top:71.862,width:0.666,height:9.497},
+  {title:'Quadra 3 - Lote 16',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 282,77 m?\nFRENTE: 10 m\nLATERAL: 28,28 m',left:39.974,top:71.862,width:0.65,height:9.497},
+  {title:'Quadra 3 - Lote 15',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 282,81 m?\nFRENTE: 10 m\nLATERAL: 28,28 m',left:40.625,top:71.862,width:0.656,height:9.497},
+  {title:'Quadra 3 - Lote 14',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 282,85 m?\nFRENTE: 10 m\nLATERAL: 28,28 m',left:41.281,top:71.862,width:0.656,height:9.497},
+  {title:'Quadra 3 - Lote 13',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 282,9 m?\nFRENTE: 10 m\nLATERAL: 28,29 m',left:41.936,top:71.862,width:0.652,height:9.497},
+  {title:'Quadra 3 - Lote 12',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 282,94 m?\nFRENTE: 10 m\nLATERAL: 28,29 m',left:42.588,top:71.862,width:0.66,height:9.497},
+  {title:'Quadra 3 - Lote 11',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 282,98 m?\nFRENTE: 10 m\nLATERAL: 28,3 m',left:43.248,top:71.862,width:0.656,height:9.506},
+  {title:'Quadra 3 - Lote 10',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 283,03 m?\nFRENTE: 10 m\nLATERAL: 28,3 m',left:43.904,top:71.862,width:0.66,height:9.497},
+  {title:'Quadra 3 - Lote 9',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 283,07 m?\nFRENTE: 10 m\nLATERAL: 28,31 m',left:44.564,top:71.862,width:0.652,height:9.497},
+  {title:'Quadra 3 - Lote 8',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 283,12 m?\nFRENTE: 10 m\nLATERAL: 28,31 m',left:45.216,top:71.862,width:0.661,height:9.497},
+  {title:'Quadra 3 - Lote 7',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 283,16 m?\nFRENTE: 10 m\nLATERAL: 28,31 m',left:45.877,top:71.862,width:0.65,height:9.506},
+  {title:'Quadra 3 - Lote 6',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 283,2 m?\nFRENTE: 10 m\nLATERAL: 28,32 m',left:46.528,top:71.862,width:0.656,height:9.497},
+  {title:'Quadra 3 - Lote 5',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 283,25 m?\nFRENTE: 10 m\nLATERAL: 28,32 m',left:47.184,top:71.862,width:0.66,height:9.497},
+  {title:'Quadra 3 - Lote 4',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 283,29 m?\nFRENTE: 10 m\nLATERAL: 28,33 m',left:47.844,top:71.862,width:0.652,height:9.497},
+  {title:'Quadra 3 - Lote 3',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 283,33 m?\nFRENTE: 10 m\nLATERAL: 28,33 m',left:48.496,top:71.862,width:0.656,height:9.506},
+  {title:'Quadra 3 - Lote 2',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 283,38 m?\nFRENTE: 10 m\nLATERAL: 28,34 m',left:49.152,top:71.862,width:0.652,height:9.497},
+  {title:'Quadra 3 - Lote 1',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 283,42 m?\nFRENTE: 10 m\nLATERAL: 28,34 m',left:49.803,top:71.862,width:0.666,height:9.497},
+  {title:'Quadra 3 - Lote 22',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 282,5 m?\nFRENTE: 10 m\nLATERAL: 28,25 m',left:36.029,top:71.862,width:0.656,height:9.497},
+  {title:'Quadra 3 - Lote 21',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 282,55 m?\nFRENTE: 10 m\nLATERAL: 28,25 m',left:36.685,top:71.862,width:0.656,height:9.497},
+  {title:'Quadra 3 - Lote 20',tip:'SITUA‚ÌO: INDISPONêVEL\nPROPRIETçRIO: EIDT\nçREA: 282,59 m?\nFRENTE: 10 m\nLATERAL: 28,26 m',left:37.341,top:71.862,width:0.656,height:9.474},
+  {title:'Quadra 13 - Lote 18',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 308,88 m?\nFRENTE: 10,8 m\nLATERAL: 28,6 m',left:51.674,top:25.891,width:1.848,height:3.56},
+  {title:'Quadra 13 - Lote 13',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 308,88 m?\nFRENTE: 10,8 m\nLATERAL: 28,6 m',left:51.674,top:29.451,width:1.848,height:3.557},
+  {title:'Quadra 13 - Lote 11',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 308,88 m?\nFRENTE: 10,8 m\nLATERAL: 28,6 m',left:51.674,top:33.008,width:1.848,height:3.592},
+  {title:'Quadra 13 - Lote 3',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 308,88 m?\nFRENTE: 10,8 m\nLATERAL: 28,6 m',left:51.674,top:36.6,width:1.848,height:3.559},
+  {title:'Quadra 13 - Lote 1',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 308,88 m?\nFRENTE: 10,8 m\nLATERAL: 28,6 m',left:51.674,top:40.159,width:1.848,height:3.559},
+  {title:'Quadra 13 - Lote 17',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:53.522,top:25.891,width:0.644,height:8.804},
+  {title:'Quadra 13 - Lote 9',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:53.522,top:34.696,width:0.644,height:9.028},
+  {title:'Quadra 13 - Lote 16',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:54.166,top:25.891,width:0.645,height:8.804},
+  {title:'Quadra 13 - Lote 8',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:54.166,top:34.696,width:0.645,height:9.028},
+  {title:'Quadra 13 - Lote 15',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:54.811,top:25.891,width:0.644,height:8.82},
+  {title:'Quadra 13 - Lote 4',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:54.811,top:34.712,width:0.644,height:9.044},
+  {title:'Quadra 13 - Lote 19',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:55.455,top:25.871,width:0.645,height:8.808},
+  {title:'Quadra 13 - Lote 7',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:55.455,top:34.699,width:0.645,height:9.057},
+  {title:'Quadra 13 - Lote 6',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:56.1,top:34.699,width:0.639,height:9.025},
+  {title:'Quadra 13 - Lote 5',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:56.739,top:34.699,width:0.639,height:9.057},
+  {title:'Quadra 13 - Lote 14',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 360,88 m?\nFRENTE: 18,64 m\nLATERAL: 29,68 m',left:56.106,top:25.951,width:1.871,height:4.898},
+  {title:'Quadra 13 - Lote 12',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 411,24 m?\nFRENTE: 15 m\nLATERAL: 38,63 m',left:56.106,top:30.849,width:2.509,height:3.787},
+  {title:'Quadra 13 - Lote 10',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 361,75 m?\nFRENTE: 18,64 m\nLATERAL: 29,64 m',left:57.377,top:34.686,width:1.905,height:5.037},
+  {title:'Quadra 13 - Lote 2',tip:'SITUA‚ÌO:   R$ 740,00/M2  \nPROPRIETçRIO: EIDT\nçREA: 411,94 m?\nFRENTE: 15 m\nLATERAL: 38,68 m',left:57.384,top:39.759,width:2.501,height:4.016},
+  {title:'Quadra 7 - Lote 30',tip:'SITUA‚ÌO: A COMBINAR\nPROPRIETçRIO: EIDT\nçREA: 306,45 m?\nFRENTE: 11,35 m\nLATERAL: 27 m',left:51.648,top:49.156,width:0.717,height:8.951},
+  {title:'Quadra 7 - Lote 29',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:52.365,top:49.156,width:0.632,height:8.951},
+  {title:'Quadra 7 - Lote 28',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:52.997,top:49.156,width:0.632,height:8.951},
+  {title:'Quadra 7 - Lote 27',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:53.629,top:49.156,width:0.632,height:8.951},
+  {title:'Quadra 7 - Lote 26',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:54.261,top:49.156,width:0.632,height:8.951},
+  {title:'Quadra 7 - Lote 25',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:54.893,top:49.156,width:0.632,height:8.951},
+  {title:'Quadra 7 - Lote 24',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:55.525,top:49.156,width:0.632,height:8.951},
+  {title:'Quadra 7 - Lote 23',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:56.157,top:49.156,width:0.632,height:8.951},
+  {title:'Quadra 7 - Lote 22',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:56.788,top:49.156,width:0.632,height:8.951},
+  {title:'Quadra 7 - Lote 21',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:57.42,top:49.156,width:0.632,height:8.951},
+  {title:'Quadra 7 - Lote 20',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:58.052,top:49.156,width:0.632,height:8.951},
+  {title:'Quadra 7 - Lote 19',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:58.684,top:49.156,width:0.632,height:8.951},
+  {title:'Quadra 7 - Lote 15',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 306,45 m?\nFRENTE: 11,35 m\nLATERAL: 27 m',left:51.648,top:58.106,width:0.719,height:8.951},
+  {title:'Quadra 7 - Lote 14',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:52.367,top:58.106,width:0.63,height:8.951},
+  {title:'Quadra 7 - Lote 13',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:52.997,top:58.106,width:0.633,height:8.951},
+  {title:'Quadra 7 - Lote 12',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:53.63,top:58.106,width:0.633,height:8.951},
+  {title:'Quadra 7 - Lote 11',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:54.263,top:58.106,width:0.63,height:8.951},
+  {title:'Quadra 7 - Lote 10',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:54.893,top:58.106,width:0.633,height:8.951},
+  {title:'Quadra 7 - Lote 9',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:55.527,top:58.106,width:0.63,height:8.951},
+  {title:'Quadra 7 - Lote 8',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:56.156,top:58.106,width:0.633,height:8.951},
+  {title:'Quadra 7 - Lote 7',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:56.79,top:58.106,width:0.63,height:8.951},
+  {title:'Quadra 7 - Lote 6',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:57.419,top:58.106,width:0.633,height:8.951},
+  {title:'Quadra 7 - Lote 5',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:58.053,top:58.106,width:0.633,height:8.951},
+  {title:'Quadra 7 - Lote 4',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:58.686,top:58.106,width:0.63,height:8.951},
+  {title:'Quadra 7 - Lote 3',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:59.316,top:58.106,width:0.633,height:8.951},
+  {title:'Quadra 7 - Lote 2',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:59.949,top:58.106,width:0.63,height:8.951},
+  {title:'Quadra 7 - Lote 18',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 360,88 m?\nFRENTE: 18,64 m\nLATERAL: 29,68 m',left:59.329,top:49.185,width:2.044,height:4.908},
+  {title:'Quadra 7 - Lote 17',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 411,24 m?\nFRENTE: 15 m\nLATERAL: 38,63 m',left:59.349,top:53.98,width:2.603,height:3.976},
+  {title:'Quadra 7 - Lote 16',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 361,75 m?\nFRENTE: 18,64 m\nLATERAL: 29,74 m',left:60.593,top:57.939,width:2.052,height:5.048},
+  {title:'Quadra 7 - Lote 1',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 411,93 m?\nFRENTE: 15 m\nLATERAL: 38,68 m',left:60.6,top:63.022,width:2.635,height:4.024},
+  {title:'Quadra 2 - Lote 19',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 242,48 m?\nFRENTE: 9,45 m\nLATERAL: 25,66 m',left:51.648,top:72.973,width:1.632,height:2.911},
+  {title:'Quadra 2 - Lote 3',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 242,48 m?\nFRENTE: 9,45 m\nLATERAL: 25,66 m',left:51.648,top:75.884,width:1.632,height:2.89},
+  {title:'Quadra 2 - Lote 1',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 242,64 m?\nFRENTE: 9,45 m\nLATERAL: 25,66 m',left:51.648,top:78.774,width:1.632,height:2.932},
+  {title:'Quadra 2 - Lote 18',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 283,64 m?\nFRENTE: 10 m\nLATERAL: 28,36 m',left:53.28,top:72.973,width:0.646,height:8.745},
+  {title:'Quadra 2 - Lote 17',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 283,69 m?\nFRENTE: 10 m\nLATERAL: 28,37 m',left:53.926,top:72.973,width:0.651,height:8.766},
+  {title:'Quadra 2 - Lote 16',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 283,73 m?\nFRENTE: 10 m\nLATERAL: 28,37 m',left:54.577,top:72.973,width:0.646,height:8.745},
+  {title:'Quadra 2 - Lote 15',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 283,77 m?\nFRENTE: 10 m\nLATERAL: 28,38 m',left:55.223,top:72.973,width:0.646,height:8.745},
+  {title:'Quadra 2 - Lote 14',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 283,82 m?\nFRENTE: 10 m\nLATERAL: 28,38 m',left:55.869,top:72.973,width:0.651,height:8.745},
+  {title:'Quadra 2 - Lote 13',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 283,86 m?\nFRENTE: 10 m\nLATERAL: 28,38 m',left:56.521,top:72.973,width:0.641,height:8.745},
+  {title:'Quadra 2 - Lote 12',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 283,9 m?\nFRENTE: 10 m\nLATERAL: 28,39 m',left:57.161,top:72.973,width:0.646,height:8.745},
+  {title:'Quadra 2 - Lote 11',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 283,95 m?\nFRENTE: 10 m\nLATERAL: 28,39 m',left:57.808,top:72.973,width:0.646,height:8.745},
+  {title:'Quadra 2 - Lote 10',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 283,99 m?\nFRENTE: 10 m\nLATERAL: 28,4 m',left:58.454,top:72.973,width:0.651,height:8.745},
+  {title:'Quadra 2 - Lote 9',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 284,03 m?\nFRENTE: 10 m\nLATERAL: 28,4 m',left:59.105,top:72.973,width:0.646,height:8.745},
+  {title:'Quadra 2 - Lote 8',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 284,08 m?\nFRENTE: 10 m\nLATERAL: 28,41 m',left:59.751,top:72.973,width:0.646,height:8.745},
+  {title:'Quadra 2 - Lote 7',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 284,12 m?\nFRENTE: 10 m\nLATERAL: 28,41 m',left:60.397,top:72.973,width:0.641,height:8.745},
+  {title:'Quadra 2 - Lote 6',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 284,17 m?\nFRENTE: 10 m\nLATERAL: 28,41 m',left:61.038,top:72.973,width:0.646,height:8.745},
+  {title:'Quadra 2 - Lote 5',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 284,21 m?\nFRENTE: 10 m\nLATERAL: 28,42 m',left:61.684,top:72.973,width:0.651,height:8.745},
+  {title:'Quadra 2 - Lote 4',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 284,25 m?\nFRENTE: 10 m\nLATERAL: 28,42 m',left:62.335,top:72.973,width:0.646,height:8.745},
+  {title:'Quadra 2 - Lote 20',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 378,8 m?\nFRENTE: 17 m\nLATERAL: 18,4 m',left:62.97,top:72.95,width:1.828,height:4.826},
+  {title:'Quadra 2 - Lote 2',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 404,96 m?\nFRENTE: 15 m\nLATERAL: 29,19 m',left:62.97,top:77.727,width:2.479,height:4.015},
+  {title:'Quadra 17 - Lote 25',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 202,03 m?\nFRENTE: 8 m\nLATERAL: 25,25 m',left:61.053,top:12.881,width:0.507,height:8.704},
+  {title:'Quadra 17 - Lote 26',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 439,59 m?\nFRENTE: 15 m\nLATERAL: 41,08 m',left:58.304,top:12.881,width:2.735,height:4.044},
+  {title:'Quadra 17 - Lote 1',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 361,08 m?\nFRENTE: 16,64 m\nLATERAL: 32,13 m',left:58.943,top:16.956,width:2.09,height:4.598},
+  {title:'Quadra 17 - Lote 24',tip:'SITUA‚ÌO: R$ 740,00/M2\nPROPRIETçRIO: EIDT\nçREA: 201,94 m?\nFRENTE: 8 m\nLATERAL: 25,25 m',left:61.56,top:12.881,width:0.507,height:8.704},
+  {title:'Quadra 17 - Lote 23',tip:'SITUA‚ÌO: R$ 740,00/M2\nPROPRIETçRIO: EIDT\nçREA: 201,85 m?\nFRENTE: 8 m\nLATERAL: 25,24 m',left:62.066,top:12.881,width:0.513,height:8.709},
+  {title:'Quadra 17 - Lote 22',tip:'SITUA‚ÌO: R$ 740,00/M2\nPROPRIETçRIO: EIDT\nçREA: 201,76 m?\nFRENTE: 8 m\nLATERAL: 25,23 m',left:62.579,top:12.881,width:0.507,height:8.704},
+  {title:'Quadra 17 - Lote 21',tip:'SITUA‚ÌO: R$ 740,00/M2\nPROPRIETçRIO: EIDT\nçREA: 201,67 m?\nFRENTE: 8 m\nLATERAL: 25,21 m',left:63.086,top:12.881,width:0.507,height:8.704},
+  {title:'Quadra 17 - Lote 20',tip:'SITUA‚ÌO: R$ 740,00/M2\nPROPRIETçRIO: EIDT\nçREA: 201,59 m?\nFRENTE: 8 m\nLATERAL: 25,2 m',left:63.592,top:12.881,width:0.515,height:8.704},
+  {title:'Quadra 17 - Lote 19',tip:'SITUA‚ÌO: R$ 740,00/M2\nPROPRIETçRIO: EIDT\nçREA: 201,5 m?\nFRENTE: 8 m\nLATERAL: 25,19 m',left:64.107,top:12.881,width:0.509,height:8.709},
+  {title:'Quadra 17 - Lote 18',tip:'SITUA‚ÌO: R$ 740,00/M2\nPROPRIETçRIO: EIDT\nçREA: 201,41 m?\nFRENTE: 8 m\nLATERAL: 25,18 m',left:64.616,top:12.881,width:0.507,height:8.704},
+  {title:'Quadra 17 - Lote 17',tip:'SITUA‚ÌO: R$ 740,00/M2\nPROPRIETçRIO: EIDT\nçREA: 201,32 m?\nFRENTE: 8 m\nLATERAL: 25,17 m',left:65.123,top:12.881,width:0.513,height:8.704},
+  {title:'Quadra 17 - Lote 16',tip:'SITUA‚ÌO: R$ 740,00/M2\nPROPRIETçRIO: EIDT\nçREA: 201,23 m?\nFRENTE: 8 m\nLATERAL: 25,16 m',left:65.636,top:12.881,width:0.507,height:8.704},
+  {title:'Quadra 17 - Lote 15',tip:'SITUA‚ÌO: R$ 740,00/M2\nPROPRIETçRIO: EIDT\nçREA: 201,14 m?\nFRENTE: 8 m\nLATERAL: 25,15 m',left:66.142,top:12.881,width:0.507,height:8.709},
+  {title:'Quadra 17 - Lote 14',tip:'SITUA‚ÌO: R$ 740,00/M2\nPROPRIETçRIO: EIDT\nçREA: 201,05 m?\nFRENTE: 8 m\nLATERAL: 25,14 m',left:66.649,top:12.881,width:0.515,height:8.704},
+  {title:'Quadra 17 - Lote 13',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 200,97 m?\nFRENTE: 8 m\nLATERAL: 25,13 m',left:67.164,top:12.881,width:0.507,height:8.704},
+  {title:'Quadra 17 - Lote 12',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 200,88 m?\nFRENTE: 8 m\nLATERAL: 25,12 m',left:67.671,top:12.881,width:0.507,height:8.704},
+  {title:'Quadra 17 - Lote 11',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 200,79 m?\nFRENTE: 8 m\nLATERAL: 25,1 m',left:68.177,top:12.881,width:0.513,height:8.709},
+  {title:'Quadra 17 - Lote 10',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 200,7 m?\nFRENTE: 8 m\nLATERAL: 25,09 m',left:68.69,top:12.881,width:0.507,height:8.704},
+  {title:'Quadra 17 - Lote 9',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 200,61 m?\nFRENTE: 8 m\nLATERAL: 25,08 m',left:69.197,top:12.881,width:0.509,height:8.704},
+  {title:'Quadra 17 - Lote 8',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 200,52 m?\nFRENTE: 8 m\nLATERAL: 25,07 m',left:69.706,top:12.881,width:0.515,height:8.704},
+  {title:'Quadra 17 - Lote 7',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 200,44 m?\nFRENTE: 8 m\nLATERAL: 25,06 m',left:70.221,top:12.881,width:0.507,height:8.709},
+  {title:'Quadra 17 - Lote 6',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 200,35 m?\nFRENTE: 8 m\nLATERAL: 25,05 m',left:70.728,top:12.881,width:0.507,height:8.709},
+  {title:'Quadra 17 - Lote 5',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 200,26 m?\nFRENTE: 8 m\nLATERAL: 25,04 m',left:71.234,top:12.881,width:0.513,height:8.704},
+  {title:'Quadra 17 - Lote 4',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 200,17 m?\nFRENTE: 8 m\nLATERAL: 25,03 m',left:71.747,top:12.881,width:0.509,height:8.704},
+  {title:'Quadra 17 - Lote 3',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 200,08 m?\nFRENTE: 8 m\nLATERAL: 25,02 m',left:72.256,top:12.881,width:0.509,height:8.709},
+  {title:'Quadra 17 - Lote 2',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 335,48 m?\nFRENTE: 13,42 m\nLATERAL: 24,99 m',left:72.765,top:12.881,width:0.901,height:8.709},
+  {title:'Quadra 14 - Lote 34',tip:'SITUA‚ÌO: R$ 740,00/M2\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:62.901,top:26.668,width:0.652,height:9.336},
+  {title:'Quadra 14 - Lote 33',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:63.553,top:26.668,width:0.647,height:9.336},
+  {title:'Quadra 14 - Lote 32',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:64.2,top:26.668,width:0.651,height:9.336},
+  {title:'Quadra 14 - Lote 31',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:64.851,top:26.668,width:0.647,height:9.336},
+  {title:'Quadra 14 - Lote 30',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:65.497,top:26.668,width:0.647,height:9.336},
+  {title:'Quadra 14 - Lote 29',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:66.144,top:26.668,width:0.647,height:9.336},
+  {title:'Quadra 14 - Lote 28',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:66.791,top:26.668,width:0.643,height:9.336},
+  {title:'Quadra 14 - Lote 27',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:67.433,top:26.668,width:0.651,height:9.336},
+  {title:'Quadra 14 - Lote 26',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:68.084,top:26.668,width:0.647,height:9.345},
+  {title:'Quadra 14 - Lote 25',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:68.731,top:26.668,width:0.651,height:9.336},
+  {title:'Quadra 14 - Lote 24',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:69.381,top:26.668,width:0.643,height:9.336},
+  {title:'Quadra 14 - Lote 23',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:70.024,top:26.668,width:0.647,height:9.336},
+  {title:'Quadra 14 - Lote 22',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:70.671,top:26.668,width:0.647,height:9.345},
+  {title:'Quadra 14 - Lote 21',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:71.317,top:26.668,width:0.647,height:9.336},
+  {title:'Quadra 14 - Lote 16',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:64.198,top:36.012,width:0.65,height:9.336},
+  {title:'Quadra 14 - Lote 15',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:64.849,top:36.012,width:0.646,height:9.336},
+  {title:'Quadra 14 - Lote 14',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:65.495,top:36.012,width:0.646,height:9.336},
+  {title:'Quadra 14 - Lote 13',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:66.142,top:36.012,width:0.646,height:9.336},
+  {title:'Quadra 14 - Lote 12',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:66.788,top:36.012,width:0.642,height:9.336},
+  {title:'Quadra 14 - Lote 11',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:67.43,top:36.012,width:0.65,height:9.336},
+  {title:'Quadra 14 - Lote 10',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:68.081,top:36.012,width:0.646,height:9.345},
+  {title:'Quadra 14 - Lote 9',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:68.727,top:36.012,width:0.65,height:9.336},
+  {title:'Quadra 14 - Lote 8',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:69.377,top:36.012,width:0.642,height:9.336},
+  {title:'Quadra 14 - Lote 7',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:70.02,top:36.012,width:0.646,height:9.336},
+  {title:'Quadra 14 - Lote 6',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:70.666,top:36.012,width:0.646,height:9.345},
+  {title:'Quadra 14 - Lote 5',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 270 m?\nFRENTE: 10 m\nLATERAL: 27 m',left:71.312,top:36.012,width:0.646,height:9.336},
+  {title:'Quadra 14 - Lote 20',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 306,5 m?\nFRENTE: 10,8 m\nLATERAL: 28,38 m',left:71.964,top:26.668,width:1.61,height:3.738},
+  {title:'Quadra 14 - Lote 19',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 306,5 m?\nFRENTE: 10,8 m\nLATERAL: 28,38 m',left:71.964,top:30.405,width:1.615,height:3.738},
+  {title:'Quadra 14 - Lote 17',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 306,5 m?\nFRENTE: 10,8 m\nLATERAL: 28,38 m',left:71.964,top:34.143,width:1.615,height:3.738},
+  {title:'Quadra 14 - Lote 3',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 306,5 m?\nFRENTE: 10,8 m\nLATERAL: 28,38 m',left:71.964,top:37.881,width:1.615,height:3.738},
+  {title:'Quadra 14 - Lote 1',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 306,5 m?\nFRENTE: 10,8 m\nLATERAL: 28,38 m',left:71.964,top:41.618,width:1.615,height:3.761},
+  {title:'Quadra 14 - Lote 35',tip:'SITUA‚ÌO: R$ 740,00/M2\nPROPRIETçRIO: EIDT\nçREA: 411,94 m?\nFRENTE: 15 m\nLATERAL: 38,68 m',left:60.383,top:26.649,width:2.511,height:4.159},
+  {title:'Quadra 14 - Lote 18',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 361,75 m?\nFRENTE: 18,64 m\nLATERAL: 29,74 m',left:60.977,top:30.808,width:1.907,height:5.185},
+  {title:'Quadra 14 - Lote 4',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 411,24 m?\nFRENTE: 15 m\nLATERAL: 38,63 m',left:61.686,top:36.045,width:2.501,height:4.261},
+  {title:'Quadra 14 - Lote 2',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 360,88 m?\nFRENTE: 18,64 m\nLATERAL: 29,68 m',left:62.261,top:40.306,width:1.936,height:5.031},
+  {title:'Quadra 9 - Lote 24',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 227,97 m?\nFRENTE: 8,94 m\nLATERAL: 25,5 m',left:66.009,top:49.542,width:0.663,height:9.058},
+  {title:'Quadra 9 - Lote 23',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 255 m?\nFRENTE: 10 m\nLATERAL: 25,5 m',left:66.672,top:49.542,width:0.645,height:9.058},
+  {title:'Quadra 9 - Lote 22',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 255 m?\nFRENTE: 10 m\nLATERAL: 25,5 m',left:67.317,top:49.542,width:0.667,height:9.058},
+  {title:'Quadra 9 - Lote 21',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 255 m?\nFRENTE: 10 m\nLATERAL: 25,5 m',left:67.984,top:49.542,width:0.649,height:9.066},
+  {title:'Quadra 9 - Lote 20',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 255 m?\nFRENTE: 10 m\nLATERAL: 25,5 m',left:68.633,top:49.542,width:0.667,height:9.058},
+  {title:'Quadra 9 - Lote 19',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 255 m?\nFRENTE: 10 m\nLATERAL: 25,5 m',left:69.3,top:49.542,width:0.645,height:9.058},
+  {title:'Quadra 9 - Lote 18',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 255 m?\nFRENTE: 10 m\nLATERAL: 25,5 m',left:69.945,top:49.542,width:0.663,height:9.058},
+  {title:'Quadra 9 - Lote 17',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: BERTICELLI\nçREA: 255 m?\nFRENTE: 10 m\nLATERAL: 25,5 m',left:70.608,top:49.542,width:0.649,height:9.066},
+  {title:'Quadra 9 - Lote 16',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 255 m?\nFRENTE: 10 m\nLATERAL: 25,5 m',left:71.256,top:49.542,width:0.649,height:9.058},
+  {title:'Quadra 9 - Lote 11',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 255 m?\nFRENTE: 10 m\nLATERAL: 25,5 m',left:67.313,top:58.608,width:0.667,height:9.058},
+  {title:'Quadra 9 - Lote 10',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 255 m?\nFRENTE: 10 m\nLATERAL: 25,5 m',left:67.98,top:58.608,width:0.648,height:9.066},
+  {title:'Quadra 9 - Lote 9',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 255 m?\nFRENTE: 10 m\nLATERAL: 25,5 m',left:68.629,top:58.608,width:0.667,height:9.058},
+  {title:'Quadra 9 - Lote 8',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 255 m?\nFRENTE: 10 m\nLATERAL: 25,5 m',left:69.296,top:58.608,width:0.644,height:9.058},
+  {title:'Quadra 9 - Lote 7',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 255 m?\nFRENTE: 10 m\nLATERAL: 25,5 m',left:69.94,top:58.608,width:0.663,height:9.058},
+  {title:'Quadra 9 - Lote 6',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 255 m?\nFRENTE: 10 m\nLATERAL: 25,5 m',left:70.603,top:58.608,width:0.648,height:9.066},
+  {title:'Quadra 9 - Lote 5',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 255 m?\nFRENTE: 10 m\nLATERAL: 25,5 m',left:71.251,top:58.608,width:0.648,height:9.058},
+  {title:'Quadra 9 - Lote 15',tip:'SITUA‚ÌO: R$ 1.000,00/M2\nPROPRIETçRIO: EIDT\nçREA: 251,33 m?\nFRENTE: 10,2 m\nLATERAL: 24,64 m',left:71.905,top:49.542,width:1.629,height:3.626},
+  {title:'Quadra 9 - Lote 14',tip:'SITUA‚ÌO: R$ 1.000,00/M2\nPROPRIETçRIO: EIDT\nçREA: 251,33 m?\nFRENTE: 10,2 m\nLATERAL: 24,64 m',left:71.905,top:53.168,width:1.635,height:3.626},
+  {title:'Quadra 9 - Lote 12',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 251,33 m?\nFRENTE: 10,2 m\nLATERAL: 24,64 m',left:71.905,top:56.794,width:1.635,height:3.626},
+  {title:'Quadra 9 - Lote 3',tip:'SITUA‚ÌO: R$ 1.000,00/M2\nPROPRIETçRIO: EIDT\nçREA: 251,33 m?\nFRENTE: 10,2 m\nLATERAL: 24,64 m',left:71.905,top:60.42,width:1.635,height:3.626},
+  {title:'Quadra 9 - Lote 1',tip:'SITUA‚ÌO: R$ 1.000,00/M2\nPROPRIETçRIO: EIDT\nçREA: 251,33 m?\nFRENTE: 10,2 m\nLATERAL: 24,64 m',left:71.905,top:64.046,width:1.635,height:3.648},
+  {title:'Quadra 9 - Lote 25',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 436,57 m?\nFRENTE: 15 m\nLATERAL: 40,73 m',left:63.586,top:49.526,width:2.435,height:4.038},
+  {title:'Quadra 9 - Lote 13',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 360,5 m?\nFRENTE: 16,77 m\nLATERAL: 31,78 m',left:64.162,top:53.564,width:1.849,height:5.035},
+  {title:'Quadra 9 - Lote 4',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 436,57 m?\nFRENTE: 15 m\nLATERAL: 40,73 m',left:64.895,top:58.648,width:2.425,height:4.137},
+  {title:'Quadra 9 - Lote 2',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 360,5 m?\nFRENTE: 16,77 m\nLATERAL: 31,78 m',left:65.452,top:62.785,width:1.877,height:4.885},
+  {title:'Quadra 1 - Lote 8',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 284,73 m?\nFRENTE: 10 m\nLATERAL: 28,47 m',left:69.445,top:73.569,width:0.651,height:8.912},
+  {title:'Quadra 1 - Lote 7',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 284,77 m?\nFRENTE: 10 m\nLATERAL: 28,47 m',left:70.096,top:73.569,width:0.67,height:8.912},
+  {title:'Quadra 1 - Lote 6',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 284,81 m?\nFRENTE: 10 m\nLATERAL: 28,47 m',left:70.765,top:73.569,width:0.655,height:8.92},
+  {title:'Quadra 1 - Lote 5',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 284,86 m?\nFRENTE: 10 m\nLATERAL: 28,47 m',left:71.42,top:73.569,width:0.655,height:8.912},
+  {title:'Quadra 1 - Lote 9',tip:'SITUA‚ÌO:  R$ 1.000,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 282,29 m?\nFRENTE: 11,49 m\nLATERAL: 24,57 m',left:72.081,top:73.542,width:1.651,height:2.978},
+  {title:'Quadra 1 - Lote 3',tip:'SITUA‚ÌO:  R$ 1.000,00/M3\nPROPRIETçRIO: EIDT\nçREA: 209 m?\nFRENTE: 8,5 m\nLATERAL: 24,57 m',left:72.081,top:76.52,width:1.651,height:2.978},
+  {title:'Quadra 1 - Lote 1',tip:'SITUA‚ÌO:  R$ 1.000,00/M4\nPROPRIETçRIO: EIDT\nçREA: 208 m?\nFRENTE: 8,51 m\nLATERAL: 24,57 m',left:72.081,top:79.497,width:1.651,height:2.996},
+  {title:'Quadra 1 - Lote 4',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 391,64 m?\nFRENTE: 15 m\nLATERAL: 37 m',left:67.018,top:73.588,width:2.428,height:3.821},
+  {title:'Quadra 1 - Lote 2',tip:'SITUA‚ÌO:  R$ 740,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 360,59 m?\nFRENTE: 20,43 m\nLATERAL: 28,05 m',left:67.569,top:77.453,width:1.876,height:5.022},
+  {title:'Quadra 6 - Lote 11',tip:'SITUA‚ÌO:  R$ 1.000,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 342,12 m?\nFRENTE: 12 m\nLATERAL: 28,51 m',left:75.193,top:74.299,width:0.758,height:8.938},
+  {title:'Quadra 6 - Lote 10',tip:'SITUA‚ÌO:  R$ 1.000,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 285,15 m?\nFRENTE: 10 m\nLATERAL: 28,51 m',left:75.951,top:74.299,width:0.633,height:8.938},
+  {title:'Quadra 6 - Lote 9',tip:'SITUA‚ÌO:  R$ 1.000,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 285,19 m?\nFRENTE: 10 m\nLATERAL: 28,52 m',left:76.584,top:74.299,width:0.631,height:8.938},
+  {title:'Quadra 6 - Lote 8',tip:'SITUA‚ÌO:  R$ 1.000,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 285,24 m?\nFRENTE: 10 m\nLATERAL: 28,52 m',left:77.215,top:74.299,width:0.633,height:8.938},
+  {title:'Quadra 6 - Lote 7',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 285,28 m?\nFRENTE: 10 m\nLATERAL: 28,52 m',left:77.848,top:74.299,width:0.631,height:8.938},
+  {title:'Quadra 6 - Lote 6',tip:'SITUA‚ÌO: VENDIDO\nPROPRIETçRIO: EIDT\nçREA: 285,32 m?\nFRENTE: 10 m\nLATERAL: 28,53 m',left:78.479,top:74.299,width:0.633,height:8.938},
+  {title:'Quadra 6 - Lote 5',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 285,37 m?\nFRENTE: 10 m\nLATERAL: 28,53 m',left:79.112,top:74.299,width:0.633,height:8.938},
+  {title:'Quadra 6 - Lote 4',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 285,41 m?\nFRENTE: 10 m\nLATERAL: 28,53 m',left:79.744,top:74.299,width:0.631,height:8.938},
+  {title:'Quadra 6 - Lote 3',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 285,45 m?\nFRENTE: 10 m\nLATERAL: 28,54 m',left:80.375,top:74.299,width:0.633,height:8.938},
+  {title:'Quadra 6 - Lote 2',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 285,5 m?\nFRENTE: 10 m\nLATERAL: 28,55 m',left:81.008,top:74.299,width:0.631,height:8.938},
+  {title:'Quadra 6 - Lote 1',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 285,6 m?\nFRENTE: 10 m\nLATERAL: 28,55 m',left:81.639,top:74.299,width:0.53,height:8.938},
+  {title:'Quadra 6 - Lote 14',tip:'SITUA‚ÌO:  R$ 1.000,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 697,15 m?\nFRENTE: 14,5 m\nLATERAL: 46,54 m',left:84.325,top:69.157,width:0.983,height:14.108},
+  {title:'Quadra 6 - Lote 12',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 290,63 m?\nFRENTE: 9,26 m\nLATERAL: 28,55 m',left:82.166,top:73.117,width:0.613,height:10.123},
+  {title:'Quadra 6 - Lote 13',tip:'SITUA‚ÌO:  R$ 1.000,00/M2 \nPROPRIETçRIO: EIDT\nçREA: 371,27 m?\nFRENTE: 10,3 m\nLATERAL: 30,25 m',left:82.767,top:70.861,width:0.637,height:12.382},
+  {title:'Quadra 6 - Lote 15',tip:'SITUA‚ÌO: BERTICELLI\nPROPRIETçRIO: BERTICELLI\nçREA: 647,76 m?\nFRENTE: 14,5 m\nLATERAL: 45,51 m',left:83.402,top:69.154,width:0.929,height:14.11}
+];
+
+function renderHotspots(){
+  const stage=document.getElementById('stage');
+  [...stage.querySelectorAll('.hot')].forEach(e=>e.remove());
+  for(const h of HOTSPOTS){
+    const d=document.createElement('div');
+    d.className='hot';
+    d.style.left=h.left+'%'; d.style.top=h.top+'%'; d.style.width=h.width+'%'; d.style.height=h.height+'%';
+    d.onclick=()=>openModal(h.title,h.tip);
+    stage.appendChild(d);
+  }
+}
+
+async function renderPDF(){
+  pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const url='mapa.pdf';
+  const loadingTask=pdfjsLib.getDocument(url);
+  const pdf=await loadingTask.promise;
+  const page=await pdf.getPage(1);
+  const canvas=document.getElementById('pdfCanvas');
+  const stage=document.getElementById('stage');
+  const containerWidth=stage.clientWidth;
+  const viewport0=page.getViewport({scale:1.0});
+  const scale=containerWidth/viewport0.width;
+  const viewport=page.getViewport({scale});
+  canvas.width=Math.floor(viewport.width);
+  canvas.height=Math.floor(viewport.height);
+  stage.style.height=canvas.height+'px';
+  const ctx=canvas.getContext('2d',{alpha:false});
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  await page.render({canvasContext:ctx,viewport}).promise;
+  renderHotspots();
+}
+
+let resizeTimer=null;
+window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{renderPDF();},200);});
+window.addEventListener('load',()=>{renderPDF().catch(err=>{alert('Falha ao carregar o PDF: '+err);});});
+</script>
+</head>
+<body>
+<div class='wrap'>
+<div class='hint'>Toque/clique em um lote para ver os detalhes.</div>
+<a class='pdf-link' href='mapa.pdf' target='_blank'>Abrir mapa (PDF)</a>
+<div class='mapbox'><div id='stage' class='stage'><canvas id='pdfCanvas'></canvas></div></div>
+</div>
+<div class='modalBack' id='modalBack' onclick='closeModal()'>
+  <div class='modal' onclick='event.stopPropagation();'>
+    <h3 id='mTitle'></h3>
+    <pre id='mText'></pre>
+    <div class='actions'><button class='btn btnClose' onclick='closeModal()'>Fechar</button></div>
+  </div>
+</div>
+</body></html>
+
